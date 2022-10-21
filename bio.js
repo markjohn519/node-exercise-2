@@ -2,169 +2,165 @@ const { argv } = require('node:process')
 const csvjson = require('csvjson')
 const fs = require('fs')
 
-const [,, flag, name, sex, age, height, weight] = argv
-
+const [,, flag, inputName, inputSex, inputAge, inputHeight, inputWeight] = argv
+const fileCSV = 'biostats2.csv'
+class BioStat {
+  constructor(name, sex, age, height, weight) {
+    this.name = name
+    this.sex = sex
+    this.age = Number(age)
+    this.height = Number(height)
+    this.weight = Number(weight)
+  }
+}
+const createBioStat = (name, sex, age, height, weight) => {
+  const newBioSat = new BioStat(name, sex, age, height, weight)
+  return newBioSat
+}
 const readCSV = (filePath) => {
-  const data = fs.readFileSync(`${__dirname}${filePath}`, { encoding: 'utf8' })
+  const data = fs.readFileSync(filePath, { encoding: 'utf8' })
+  const bioObj = csvjson.toObject(data, { quote: true, delimiter: ',' })
   const bioArr = csvjson.toColumnArray(data, { quote: true, delimiter: ',' })
-  return bioArr
+  const mapStats = new Map()
+  bioArr.name.forEach((value, index) => {
+    mapStats.set(value, bioObj[index])
+  })
+  return mapStats
 }
-const writesCSV = (filePath, arr) => {
-  const newData = fs.writeFileSync(filePath, arr, { encoding: 'utf8', flag: 'w' })
+const writesCSV = (filePath, updateMap) => {
   if (fs.existsSync(!filePath)) return console.log(false)
-  console.log(true)
-  return newData
+  const convertedArr = Array.from(updateMap.values())
+  fs.writeFileSync(
+    filePath,
+    csvjson.toCSV(convertedArr, { delimiter: ',', quote: '"', headers: 'key' }),
+    { encoding: 'utf-8' },
+  )
+  return true
 }
-const bioObject = (arr, position) => {
-  const newObj = {
-    name: arr.name[position],
-    sex: arr.sex[position],
-    age: arr.age[position],
-    height: arr.height[position],
-    weight: arr.weight[position],
+const createBio = (oldStat, newStat) => {
+  const keyName = newStat.name
+  const newMapStats = oldStat.set(keyName, newStat)
+  return newMapStats
+}
+const readBio = (oldStat, personStat) => {
+  const keyName = personStat.name
+  const findName = oldStat.get(keyName)
+  return findName
+}
+const updateBio = (oldStat, person) => {
+  const keyName = person.name
+  return oldStat.set(keyName, {
+    ...oldStat.get(keyName),
+    sex: person.sex,
+    age: person.age,
+    height: person.height,
+    weight: person.weight,
+  })
+}
+const deleteBio = (oldStat, personStat) => {
+  const keyName = personStat.name
+  oldStat.delete(keyName)
+  return oldStat
+}
+const nameInsensitive = (parNameInsensitive) => {
+  const name1 = parNameInsensitive.toLowerCase()
+  const name = name1.charAt(0).toUpperCase() + name1.slice(1)
+  return name
+}
+const oldStats = readCSV(fileCSV)
+const inputNameInsensitive = nameInsensitive(inputName)
+const newBioStats = createBioStat(
+  inputNameInsensitive,
+  inputSex,
+  inputAge,
+  inputHeight,
+  inputWeight,
+)
+const personData = readBio(oldStats, newBioStats)
+
+const completeAllInput = () => {
+  const condition1 = inputName === undefined || inputSex === undefined
+  const condition2 = inputHeight === undefined || inputWeight === undefined
+  if (condition1 || condition2) {
+    console.log('All argument should be complete in Create Bio')
+    process.exit(1)
   }
-  return newObj
 }
-const createBio = (arr, parName, parSex, parAge, parHeight, parWeight) => {
-  arr.name.push(parName)
-  arr.sex.push(parSex)
-  arr.age.push(parAge)
-  arr.height.push(parHeight)
-  arr.weight.push(parWeight)
-  const newArrBio = arr
-  const arrayLikeObjBio = []
-  const latestArrBio = []
-  latestArrBio.push(Object.keys(newArrBio))
-  newArrBio.name.forEach((_value, index) => {
-    arrayLikeObjBio.push(bioObject(newArrBio, index))
-    latestArrBio.push(Object.values(arrayLikeObjBio[index]))
-  })
-  const lastestStringArr = latestArrBio.join('\n').toString()
-  writesCSV('biostats.csv', lastestStringArr)
-}
-const readBio = (arr, parName) => {
-  const findName = arr.name.indexOf(parName)
-  if (findName === -1) {
-    return null
+const checkName = (oldstat, parNameInsensitive) => {
+  if (oldstat.has(parNameInsensitive)) {
+    console.log(`Name "${inputName}" already exist.`)
+    process.exit(1)
   }
-  return bioObject(arr, findName)
 }
-const updateBio = (arr, parName, parSex, parAge, parHeight, parWeight) => {
-  const findName = arr.name.indexOf(parName)
-  arr.sex.splice(findName, 1, parSex)
-  arr.age.splice(findName, 1, parAge)
-  arr.height.splice(findName, 1, parHeight)
-  arr.weight.splice(findName, 1, parWeight)
-  const updatedArrBio = arr
-  const arrayLikeObjBio = []
-  const latestArrBio = []
-  latestArrBio.push(Object.keys(updatedArrBio))
-  updatedArrBio.name.forEach((_value, index) => {
-    arrayLikeObjBio.push(bioObject(updatedArrBio, index))
-    latestArrBio.push(Object.values(arrayLikeObjBio[index]))
-  })
-  const lastestStringArr = latestArrBio.join('\n').toString()
-  writesCSV('biostats.csv', lastestStringArr)
+const checkSexInput = () => {
+  if (!['m', 'M', 'f', 'F'].includes(inputSex)) {
+    console.log('Put "f", "F", "m" and "M" only.')
+    process.exit(1)
+  }
 }
-const deleteBio = (arr, parName) => {
-  const findName = arr.name.indexOf(parName)
-  arr.name.splice(findName, 1)
-  arr.sex.splice(findName, 1)
-  arr.age.splice(findName, 1)
-  arr.weight.splice(findName, 1)
-  arr.height.splice(findName, 1)
-  const deletedArrBio = arr
-  const arrayLikeObjBio = []
-  const latestArrBio = []
-  latestArrBio.push(Object.keys(deletedArrBio))
-  deletedArrBio.name.forEach((_value, index) => {
-    arrayLikeObjBio.push(bioObject(deletedArrBio, index))
-    latestArrBio.push(Object.values(arrayLikeObjBio[index]))
-  })
-  const lastestStringArr = latestArrBio.join('\n').toString()
-  writesCSV('biostats.csv', lastestStringArr)
+const checkAge = () => {
+  if (inputAge < 18 || Number.isNaN(Number(inputAge))) {
+    console.log('Only 18 above is accepted and Number Only.')
+    process.exit(1)
+  }
+}
+const checkNumber = () => {
+  if (Number.isNaN(Number(inputHeight))) {
+    console.log('Height shoud be a number.')
+    process.exit(1)
+  }
+  if (Number.isNaN(Number(inputWeight))) {
+    console.log('Weight shoud be a number.')
+    process.exit(1)
+  }
+}
+const undefinedName = () => {
+  if (inputName === undefined) {
+    console.log('Name argument should not be emty to View Bio')
+    process.exit(1)
+  }
+}
+const nameExist = (name) => {
+  if (oldStats.has(name) === false) {
+    console.log(`This name "${inputName}" doesn't exist`)
+    process.exit()
+  }
 }
 switch (flag) {
-  case '-c': {
-    const name1 = name.toLowerCase()
-    const nameInsensitive = name1.charAt(0).toUpperCase() + name1.slice(1)
-    const condition1 = flag === undefined || name === undefined || sex === undefined
-    const condition2 = height === undefined || weight === undefined
-    if (condition1 || condition2) {
-      console.log('All argument should be complete in Create Bio')
-      process.exit(1)
-    } else if (readBio(readCSV('/biostats.csv'), nameInsensitive, sex.toUpperCase()) !== null) {
-      console.log(`Name ${name} already exist.`)
-      process.exit(1)
-    } else if (!['m', 'M', 'f', 'F'].includes(sex)) {
-      console.log('Put "f", "F", "m" and "M" only.')
-      process.exit(1)
-    } else if (age < 18 || Number.isNaN(Number(age))) {
-      console.log('Only 18 and above is accepted and Number Only.')
-      process.exit(1)
-    } else if (Number.isNaN(Number(height))) {
-      console.log('Height shoud be a number.')
-      process.exit(1)
-    } else if (Number.isNaN(Number(weight))) {
-      console.log('Weight shoud be a number.')
-      process.exit(1)
-    }
-    createBio(readCSV('/biostats.csv'), nameInsensitive, sex.toUpperCase(), age, height, weight)
+  case '-c':
+    completeAllInput()
+    checkName(oldStats, nameInsensitive(inputName))
+    checkSexInput()
+    checkAge()
+    checkNumber()
+    writesCSV(fileCSV, createBio(oldStats, newBioStats))
+    console.log(`Created new BioStat for ${inputName}`)
     break
-  }
-  case '-r': {
-    const name1 = name.toLowerCase()
-    const nameInsensitive = name1.charAt(0).toUpperCase() + name1.slice(1)
-    if (flag === undefined || name === undefined) {
-      console.log('Name argument should not be emty to View Bio')
-      process.exit(1)
-    } else if (sex !== undefined) {
-      console.log('Only Flag and Name should be entered')
-      process.exit(1)
-    } else if (readBio(readCSV('/biostats.csv'), nameInsensitive) !== null) {
-      const read = readBio(readCSV('/biostats.csv'), nameInsensitive)
-      console.log(`\n Name   : ${read.name}\n Sex    : ${read.sex === 'M' ? 'Male' : 'Female'}\n Age    : ${read.age}\n Height : ${read.height * 2.54}\n Weight : ${read.weight / 2.2046} \n`)
-      process.exit(1)
-    } else console.log(`Name "${name}" doesn't exist.`)
-  }
+  case '-r':
+    undefinedName()
+    nameExist(inputNameInsensitive)
+    console.log(`
+  Name   : ${personData.name}
+  Sex    : ${personData.sex === 'M' ? 'Male' : 'Female'}
+  Age    : ${personData.age}
+  Height : ${personData.height} inches and ${(personData.height * 2.54).toFixed(2)} centimeters
+  Weight : ${personData.weight} pounds and  ${(personData.weight / 2.2046).toFixed(2)} kilos
+  `)
     break
-  case '-u': {
-    const name1 = name.toLowerCase()
-    const nameInsensitive = name1.charAt(0).toUpperCase() + name1.slice(1)
-    if (flag === undefined || name === undefined || sex === undefined) {
-      console.log('All argument should be complete in Create Bio')
-      process.exit(1)
-    } else if (!['m', 'M', 'f', 'F'].includes(sex)) {
-      console.log('Put "f", "F", "m" and "M" only.')
-      process.exit(1)
-    } else if (age < 18 || Number.isNaN(Number(age))) {
-      console.log('Only 18 and above is accepted and Number Only.')
-      process.exit(1)
-    } else if (Number.isNaN(Number(height))) {
-      console.log('Height shoud be a number.')
-      process.exit(1)
-    } else if (Number.isNaN(Number(weight))) {
-      console.log('Weight shoud be a number.')
-      process.exit(1)
-    }
-    updateBio(readCSV('/biostats.csv'), nameInsensitive, sex.toUpperCase(), age, height, weight)
-  }
+  case '-u':
+    completeAllInput()
+    nameExist(inputNameInsensitive)
+    checkSexInput()
+    checkAge()
+    checkNumber()
+    writesCSV(fileCSV, updateBio(oldStats, newBioStats))
+    console.log(`Succesfully updated ${inputNameInsensitive}`)
     break
-  case '-d': {
-    const name1 = name.toLowerCase()
-    const nameInsensitive = name1.charAt(0).toUpperCase() + name1.slice(1)
-    if (flag === undefined || name === undefined) {
-      console.log('Name argument should not be emty to View Bio')
-      process.exit(1)
-    } else if (sex !== undefined) {
-      console.log('Only Flag and Name should be entered')
-      process.exit(1)
-    } else if (readBio(readCSV('/biostats.csv'), nameInsensitive) !== null) {
-      deleteBio(readCSV('/biostats.csv'), nameInsensitive)
-      console.log(`deleted ${name}`)
-      process.exit(1)
-    } else console.log(`Name "${name}" doesn't exist.`)
-  }
+  case '-d':
+    undefinedName()
+    nameExist(inputNameInsensitive)
+    writesCSV(fileCSV, deleteBio(oldStats, newBioStats))
+    console.log(`Succesfully deleted "${inputNameInsensitive}"`)
     break
   default:
     console.log(`Your input "${flag}" is not allowed. Use only from -c, -r, -u, and -d.`)
